@@ -92,6 +92,13 @@ public class TeamDrivetrain {
         imu.initialize(imuInit);
     }
 
+    public void stopDrive(){
+        frontLeft.setPower(0);
+        frontRight.setPower(0);
+        backLeft.setPower(0);
+        backRight.setPower(0);
+    }
+
     //Mecanum Driving
     public void robotDrive(double y, double x, double rot, double speedAdj) {
 
@@ -157,7 +164,7 @@ public class TeamDrivetrain {
 
     //Returns false if motors are not at target
     //Returns true if motors are at target
-    //ONLY WORKS IN RUN TO POSITIO
+    //ONLY WORKS IN RUN TO POSITION
     private boolean motorsAtTarget() {
         if(frontLeft.isBusy() && backLeft.isBusy() && frontRight.isBusy() && backRight.isBusy()) return false;
         else return true;
