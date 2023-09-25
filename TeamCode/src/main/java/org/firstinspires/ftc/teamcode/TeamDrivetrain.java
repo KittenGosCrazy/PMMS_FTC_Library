@@ -150,13 +150,14 @@ public class TeamDrivetrain {
     }
 
     public double getDriveDistance(){
-        double driveDistance = (frontLeft.getCurrentPosition() + backLeft.getCurrentPosition() + frontRight.getCurrentPosition() + backRight.getCurrentPosition())/4;
-        return driveDistance;
+        double yDistance = (frontLeft.getCurrentPosition() + backLeft.getCurrentPosition() + frontRight.getCurrentPosition() + backRight.getCurrentPosition())/4;
+        double xDistance = (((frontLeft.getCurrentPosition()-backRight.getCurrentPosition())+(frontRight.getCurrentPosition()-backLeft.getCurrentPosition()))/4);
+        return yDistance + xDistance;
     }
 
     //Returns false if motors are not at target
     //Returns true if motors are at target
-    //ONLY WORKS IN RUN TO POSITION
+    //ONLY WORKS IN RUN TO POSITIO
     private boolean motorsAtTarget() {
         if(frontLeft.isBusy() && backLeft.isBusy() && frontRight.isBusy() && backRight.isBusy()) return false;
         else return true;
