@@ -39,9 +39,9 @@ public class TeamDrivetrain {
     //CPR = Counts Per Revolution
     //CPI = Counts Per Inch
 
-    private static double gearRatio = 5.23;
+    private static double gearRatio =22;
     private static double motorCPR = 28;
-    private static double wheelDiameter = 1;
+    private static double wheelDiameter = 3;
 
     //Adjusted Values in calculations
     private static double adjustedCPR = motorCPR*gearRatio;
@@ -86,7 +86,7 @@ public class TeamDrivetrain {
         IMU.Parameters imuInit = new IMU.Parameters(new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.UP, //Change this to what direction your logo is facing
                 RevHubOrientationOnRobot.UsbFacingDirection.LEFT //Change this to what direction the usb port is facing
-            )
+        )
         );
         //Tells the IMU/Gyroscope how the Control Hub (with the IMU) is set up using what we defined above
         imu.initialize(imuInit);
@@ -116,11 +116,6 @@ public class TeamDrivetrain {
         frontRight.setPower(frontRightPower);
         backRight.setPower(backRightPower);
 
-        //Updates Telemetry
-        telemetry.addData("Front Left Power", this.frontLeftPower);
-        telemetry.addData("Back Left Power", this.backLeftPower );
-        telemetry.addData("Front Right Power", this.frontRightPower);
-        telemetry.addData("Back Right Power", this.backRightPower);
 
     }
 
@@ -138,9 +133,6 @@ public class TeamDrivetrain {
         //Calls the Robot drive function, now using the updated inputs for field oriented
         robotDrive(adjY,adjX,rot,speedAdj);
 
-        //Telemetry
-        telemetry.addData("Heading in Radians", this.getHeadingInRadians());
-        telemetry.addData("Heading in Degrees", this.getHeadingInDegrees());
 
     }
 
@@ -156,126 +148,7 @@ public class TeamDrivetrain {
         return degHeading;
     }
 
-    public double getDriveDistance(){
-        double yDistance = (frontLeft.getCurrentPosition() + backLeft.getCurrentPosition() + frontRight.getCurrentPosition() + backRight.getCurrentPosition())/4;
-        double xDistance = (((frontLeft.getCurrentPosition()-backRight.getCurrentPosition())+(frontRight.getCurrentPosition()-backLeft.getCurrentPosition()))/4);
-        return yDistance + xDistance;
+    public double getDriveCPI() {
+        return driveCPI;
     }
-
-    //Returns false if motors are not at target
-    //Returns true if motors are at target
-    //ONLY WORKS IN RUN TO POSITION
-    private boolean motorsAtTarget() {
-        if(frontLeft.isBusy() && backLeft.isBusy() && frontRight.isBusy() && backRight.isBusy()) return false;
-        else return true;
-    }
-
-
-
-    //AUTONOMOUS DRIVE FUNCTIONS
-
-    //Variables needed initialization outside of a loop
-    private boolean autoDriveRunning = false;
-    private double initialPosition;
-    private double initialRotation;
-
-    //Telemetry Variables
-    private double distanceRemaining;
-    private double rotationRemaining;
-
-    //Defines Autonomous Constants for adjustment
-    private double kMecanumDrift = 1; //To get: set this to 1, then run it to a distance. Measure the actual distance and divide it by desired distance
-    private final double kRotFactor = 1; //Multiplies by the poseFactor to adjust it's weight
-    private final double kSlipFactor = 0.25; //Deadzone adjustment for driving
-
-
-    //Returns a false if still running
-    //Returns a true if it has stopped running
-    //distance in inches to move, desiredSpeed (1-0), desiredRotation to rotate the robot,
-    //travelHeading for the heading it travels, fieldCentric for whether it is field centric or not
-    public boolean autoDrive(double distance, double desiredSpeed, double desiredRotation, double travelHeading, boolean fieldCentric) {
-
-        //Sets the boolean for if we are at targets
-        boolean atRotation = false; //Is rotation complete?
-        boolean atDistance = false; //Is distance complete?
-        boolean atTarget = false; //Robot at both targeted positions? (Stopped running)
-
-
-        //Set Current, Initial, and Targeted Positions
-        double currentRotation = getHeadingInDegrees(); //Records Rotation
-        double currentPosition = getDriveDistance()/driveCPI; //Records Distance
-        //On first run of this call:
-        if(!autoDriveRunning) {
-            initialPosition = currentPosition; //Start Spot
-            initialRotation = currentRotation; //Start Rotation
-            autoDriveRunning = true; //Makes sure robot knows this is running
-        }
-
-        double targetedPosition = (initialPosition + distance) * kMecanumDrift; //Adjusts the position relative to the start position of the robot
-
-        double poseRatio; //Ratio between rotation difference and position difference
-        //Make sure its not dividing by 0, and then get a ratio that's always positive
-        if (targetedPosition - initialPosition != 0) poseRatio = Math.abs((desiredRotation-initialRotation)/(targetedPosition-initialPosition));
-        else poseRatio = 1;
-
-        //INPUT VARIABLES
-        double inputX; //Movement side-to-side
-        double inputY; //Movement forward/back
-        double inputRot; //Rotational Movement
-
-
-        //DISTANCE CALCULATIONS
-        //Sets the Input X and Ys after checking where the robot is in relation to it's target. Deadzones set by the "Slip Factor"
-        if (currentPosition > targetedPosition + kSlipFactor || currentPosition < targetedPosition - kSlipFactor) {
-            //Gets ratio between X-Y
-            inputX = Math.sin(travelHeading);
-            inputY = Math.cos(travelHeading);
-        }
-        else {
-            //ONLY RUNS WHEN WE ARE AT CORRECT DISTANCE
-            inputX = 0;
-            inputY = 0;
-            atDistance = true;
-        }
-
-
-        //ROTATION CALCULATIONS
-        //Sets rotation speed according to poseRatio. Multiplies by kRotFactor for better control and adjustment
-        if(currentRotation > desiredRotation + 1){
-            inputRot = poseRatio * kRotFactor;
-        }
-        else if (currentRotation < desiredRotation - 1) {
-            inputRot = - poseRatio * kRotFactor;
-        }
-        else {
-            //ONLY RUNS WHEN WE ARE CORRECT ROTATION
-            atRotation = true;
-            inputRot = 0;
-        }
-
-
-        //DRIVE
-        //Call the Drive function in accordance with the "fieldCentric" boolean
-        if (fieldCentric == true) fieldDrive(inputY,inputX,inputRot,desiredSpeed); //Calls field centric when method calls for it
-        else robotDrive(inputY,inputX,inputRot,desiredSpeed); //Calls robot centric when method doesn't want field centric
-
-        //TELEMETRY
-        telemetry.addData("Auto Drive Running", this.autoDriveRunning);
-
-        distanceRemaining = currentPosition-initialPosition;
-        telemetry.addData("Inches to Target Distance", this.distanceRemaining);
-
-        rotationRemaining = currentRotation-initialRotation;
-        telemetry.addData("Degrees to Target Rotation", this.rotationRemaining);
-
-
-        //If we are at the target position (both rot and distance), reset for next call
-        if(atRotation && atDistance) atTarget = true;
-        if(atTarget == true) autoDriveRunning = false;
-
-        //Returns whether we are at target
-        return atTarget;
-
-    }
-
 }
