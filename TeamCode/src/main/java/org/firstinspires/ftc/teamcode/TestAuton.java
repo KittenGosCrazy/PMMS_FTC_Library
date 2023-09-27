@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 @Autonomous(name= "Test Autonomous", group="Linear Opmode")
 public class TestAuton extends LinearOpMode {
 
-    TeamDrivetrain drivetrain = new TeamDrivetrain();
+    AutoDrivetrain drivetrain = new AutoDrivetrain(0,0); //Offset X, Offset Y
 
     @Override
     public void runOpMode() {
@@ -17,18 +17,29 @@ public class TestAuton extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-            //Drive forward and turn 90 degrees to the right
+
+            //Records changes in position
+            drivetrain.recordPose();
+
             if (state == 0) {
-                if(drivetrain.autoDrive(12, 1, 90, 0, true)) state = 10;
+                if (drivetrain.autoDriveToDistance(12,0.5,90,15,true)) state = 10;
             }
-            //Drive to the left, and turn to a rotation of 45 degrees
             if (state == 10) {
-                if(drivetrain.autoDrive(6, 0.5, 45, 270, true)) state = 999;
+                if (drivetrain.autoDriveToPosition(0,0,0.5, 0)) state = 999;
             }
             //Stop Driving
             if (state == 999) {
                 drivetrain.stopDrive();
             }
+
+            //TELEMETRY
+            telemetry.addData("State", state);
+            telemetry.addData("Position X", drivetrain.getPoseX());
+            telemetry.addData("Position Y", drivetrain.getPoseY());
+            telemetry.addData("Target X", drivetrain.getTargetX());
+            telemetry.addData("Target Y", drivetrain.getTargetY());
+            telemetry.addData("Auto Counter", drivetrain.getAutoCounter());
         }
+
     }
 }
