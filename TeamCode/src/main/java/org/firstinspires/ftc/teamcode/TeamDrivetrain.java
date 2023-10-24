@@ -3,6 +3,12 @@ package org.firstinspires.ftc.teamcode;
 
 import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
 
+import com.arcrobotics.ftclib.drivebase.MecanumDrive;
+import com.arcrobotics.ftclib.geometry.Rotation2d;
+import com.arcrobotics.ftclib.hardware.RevIMU;
+import com.arcrobotics.ftclib.hardware.motors.Motor;
+import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
+import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -17,10 +23,19 @@ public class TeamDrivetrain {
 
 
     //Defines the motor variables (ex: frontLeft) as a DcMotor
-    public DcMotor frontLeft;
-    public DcMotor backLeft;
-    public DcMotor frontRight;
-    public DcMotor backRight;
+    public Motor frontLeft;
+    public Motor backLeft;
+    public Motor frontRight;
+    public Motor backRight;
+
+    public Motor.Encoder flEncoder;
+    public Motor.Encoder blEncoder;
+    public Motor.Encoder frEncoder;
+    public Motor.Encoder brEncoder;
+
+    public MecanumDrive mecanum;
+
+    public ChassisSpeeds speeds;
 
     public double frontLeftPower;
     public double backLeftPower;
@@ -28,24 +43,25 @@ public class TeamDrivetrain {
     public double backRightPower;
 
 
-    public IMU imu;
+    private RevIMU imu;
+
+
 
     private double radHeading;
     private double degHeading;
 
 
     //IMPORTANT FOR ENCODER CALCULATIONS
-    //These are just placeholder variables until we can measure them
     //CPR = Counts Per Revolution
-    //CPI = Counts Per Inch
-
-    private static double gearRatio =22;
-    private static double motorCPR = 28;
-    private static double wheelDiameter = 3;
+    //IPC = Inches Per Count
+    private static final double gearRatio =22;
+    private static final double motorCPR = 28;
+    private static final double wheelDiameter = 3;
 
     //Adjusted Values in calculations
-    private static double adjustedCPR = motorCPR*gearRatio;
-    private static double driveCPI = adjustedCPR/(Math.PI * wheelDiameter);
+    private static final double adjustedCPR = motorCPR*gearRatio;
+    private static double driveIPC = (Math.PI * wheelDiameter)/adjustedCPR;
+
 
     /*
     Call this at the start of your OpMode and it will Initialize the following:
@@ -57,81 +73,81 @@ public class TeamDrivetrain {
         //Drive Motor Initialization
 
         //Maps the Motors to the proper slot on the RevHubs. Name is found in the configuration menu
-        frontLeft = hwMap.get(DcMotor.class, "frontLeft");
-        backLeft = hwMap.get(DcMotor.class, "backLeft");
-        frontRight = hwMap.get(DcMotor.class, "frontRight");
-        backRight = hwMap.get(DcMotor.class, "backRight");
+        frontLeft = hwMap.get(Motor.class, "frontLeft");
+        backLeft = hwMap.get(Motor.class, "backLeft");
+        frontRight = hwMap.get(Motor.class, "frontRight");
+        backRight = hwMap.get(Motor.class, "backRight");
 
         //Sets the right side to reverse
-        frontRight.setDirection(DcMotorSimple.Direction.REVERSE);
-        backRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        frontRight.setInverted(true);
+        backRight.setInverted(true);
 
-        //Sets the motors to default as running using encoders
-        frontLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        frontRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backRight.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
+        //Sets the motors to Brake when stopped
+        frontLeft.setZeroPowerBehavior(Motor.ZeroPowerBehavior.BRAKE);
+        backLeft.setZeroPowerBehavior(Motor.ZeroPowerBehavior.BRAKE);
+        frontRight.setZeroPowerBehavior(Motor.ZeroPowerBehavior.BRAKE);
+        backRight.setZeroPowerBehavior(Motor.ZeroPowerBehavior.BRAKE);
+
 
         //Prevents movement of motors, just in case.
-        frontLeft.setPower(0);
-        backLeft.setPower(0);
-        frontRight.setPower(0);
-        backRight.setPower(0);
+        frontLeft.stopMotor();
+        backLeft.stopMotor();
+        frontRight.stopMotor();
+        backRight.stopMotor();
+
+
+        //ENCODER INITIALIZATION
+        flEncoder = frontLeft.encoder;
+        blEncoder = backLeft.encoder;
+        frEncoder = frontRight.encoder;
+        brEncoder = backRight.encoder;
+
+        //Sets Inches Per Count (Pulse) of the Motors
+        flEncoder.setDistancePerPulse(driveIPC);
+        blEncoder.setDistancePerPulse(driveIPC);
+        frEncoder.setDistancePerPulse(driveIPC);
+        brEncoder.setDistancePerPulse(driveIPC);
 
         //IMU (Gyroscope) initialization
 
         //Maps the IMU/Gyroscope to the correct spot in the configuration
-        imu = hwMap.get(IMU.class,"imu");
-        //Determines how the Rev Hub (with the IMU) is set up on your robot
-        IMU.Parameters imuInit = new IMU.Parameters(new RevHubOrientationOnRobot(
-                RevHubOrientationOnRobot.LogoFacingDirection.UP, //Change this to what direction your logo is facing
-                RevHubOrientationOnRobot.UsbFacingDirection.LEFT //Change this to what direction the usb port is facing
-        )
+
+        imu = new RevIMU(hwMap,"imu");
+        imu.init();
+
+        mecanum = new MecanumDrive(frontLeft, frontRight, backLeft, backRight);
+
+        //Kinematics and Odometry
+        speeds = ChassisSpeeds.fromFieldRelativeSpeeds(
+                2.0,2.0,Math.PI / 2.0, Rotation2d.fromDegrees(45)
         );
-        //Tells the IMU/Gyroscope how the Control Hub (with the IMU) is set up using what we defined above
-        imu.initialize(imuInit);
     }
 
     public void stopDrive(){
-        frontLeft.setPower(0);
-        frontRight.setPower(0);
-        backLeft.setPower(0);
-        backRight.setPower(0);
+        mecanum.stop();
     }
 
     //Mecanum Driving
-    public void robotDrive(double y, double x, double rot, double speedAdj) {
-
-        //Math stuff for Mecanum Drive
-
-        double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rot), 1);
-        frontLeftPower = ((y + x + rot) / denominator)*speedAdj;
-        backLeftPower = ((y - x + rot) / denominator)*speedAdj;
-        frontRightPower = ((y - x - rot) / denominator)*speedAdj;
-        backRightPower = ((y + x - rot) / denominator)*speedAdj;
-
-        //Takes the results from the math and feeds it to the motor to get drive power
-        frontLeft.setPower(frontLeftPower);
-        backLeft.setPower(backLeftPower);
-        frontRight.setPower(frontRightPower);
-        backRight.setPower(backRightPower);
-
-
+    public void robotDrive(double x, double y, double rot, double speedAdj) {
+        x *= speedAdj;
+        y *= speedAdj;
+        rot *= speedAdj;
+        mecanum.driveRobotCentric(x,y,rot);
     }
 
     //Field Centric Driving
-    public void fieldDrive(double y, double x, double rot, double speedAdj){
+    public void fieldDrive(double x, double y, double rot, double speedAdj){
 
         //Gets the angle of the robot in radians
         //Used to determine relative rotation in relation to field
-        double heading = getHeadingInRadians();
+        double heading = getHeadingInDegrees();
 
-        //Takes the inputs we get and rotates them to make them in line with the field and not the robot
-        double adjX = x * Math.cos(-heading) - y * Math.sin(-heading);
-        double adjY = x * Math.sin(-heading) + y * Math.cos(-heading);
+        x *= speedAdj;
+        y *= speedAdj;
+        rot *= speedAdj;
 
         //Calls the Robot drive function, now using the updated inputs for field oriented
-        robotDrive(adjY,adjX,rot,speedAdj);
+        mecanum.driveFieldCentric(x,y,rot,heading);
 
 
     }
@@ -139,16 +155,14 @@ public class TeamDrivetrain {
     //Returns gyro angle in respective unit
 
     public double getHeadingInRadians() {
-        radHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+        //radHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
         return radHeading;
+
     }
 
     public double getHeadingInDegrees() {
-        degHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+        //degHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
         return degHeading;
     }
 
-    public double getDriveCPI() {
-        return driveCPI;
-    }
 }

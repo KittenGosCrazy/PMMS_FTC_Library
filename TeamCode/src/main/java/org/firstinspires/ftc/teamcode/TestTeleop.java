@@ -30,8 +30,7 @@ public class TestTeleop extends LinearOpMode {
 
             if (gamepad1.right_trigger < 0.5) speedAdjustment = 1;
             else if (gamepad1.right_trigger > 0.5) speedAdjustment = 0.6;
-
-            drivetrain.fieldDrive(yInput, xInput, rotInput, speedAdjustment);
+            drivetrain.fieldDrive(xInput, yInput, rotInput, speedAdjustment);
 
             telemetry.update();
 
