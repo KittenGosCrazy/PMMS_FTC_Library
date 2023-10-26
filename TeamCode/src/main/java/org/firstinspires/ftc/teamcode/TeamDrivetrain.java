@@ -37,10 +37,8 @@ public class TeamDrivetrain {
 
     public ChassisSpeeds speeds;
 
-    public double frontLeftPower;
-    public double backLeftPower;
-    public double frontRightPower ;
-    public double backRightPower;
+    public static final double maxVelocity = 12; //In Inches/s
+    public static final double maxAccel = 12; //In Inches/s/s
 
 
     private RevIMU imu;
