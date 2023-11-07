@@ -5,6 +5,7 @@
 - To make the transition from blocks to Java easy for teams -
 - To be easily adjustable and customizable -
 - To be small, lightweight, and compact -
+- What a bunch of Hippy Dippy Baloney - 
 
 <hr>
 
