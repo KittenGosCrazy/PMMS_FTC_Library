@@ -1,6 +1,15 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.arcrobotics.ftclib.geometry.Pose2d;
+import com.arcrobotics.ftclib.geometry.Rotation2d;
+import com.arcrobotics.ftclib.geometry.Translation2d;
+import com.arcrobotics.ftclib.kinematics.wpilibkinematics.MecanumDriveKinematics;
+import com.arcrobotics.ftclib.kinematics.wpilibkinematics.MecanumDriveOdometry;
+import com.arcrobotics.ftclib.kinematics.wpilibkinematics.MecanumDriveWheelSpeeds;
+import com.qualcomm.robotcore.util.ElapsedTime;
+
 public class AutoDrivetrain extends TeamDrivetrain {
+
 
     //Position/Odometry Variables
     private double poseX;
@@ -36,6 +45,20 @@ public class AutoDrivetrain extends TeamDrivetrain {
     private final double kSlipFactor = 2.5; //Deadzone adjustment for driving
     private final double kRotDeadzone = 5;
 
+    Translation2d flWheelLocation =
+            new Translation2d(0.381, 0.381);
+    Translation2d frWheelLocation =
+            new Translation2d(0.381, -0.381);
+    Translation2d blWheelLocation =
+            new Translation2d(-0.381, 0.381);
+    Translation2d brWheelLocation =
+            new Translation2d(-0.381, -0.381);
+
+    MecanumDriveOdometry odometryHelper;
+    MecanumDriveKinematics wheelLocationHelper;
+
+    ElapsedTime autoTimer = new ElapsedTime();
+    ElapsedTime veloTimer = new ElapsedTime();
     /*
   --------------------------
 ---------CONSTRUCTORS---------
@@ -54,35 +77,53 @@ public class AutoDrivetrain extends TeamDrivetrain {
     Sets the start position (pose) of the robot
 
     */
+
+
+
     public AutoDrivetrain() {
-        poseX = 0;
-        poseY = 0;
+        wheelLocationHelper = new MecanumDriveKinematics(
+                flWheelLocation, frWheelLocation,
+                blWheelLocation, brWheelLocation
+        );
+
+        odometryHelper = new MecanumDriveOdometry(
+                wheelLocationHelper, new Rotation2d(getHeadingInRadians()),
+                new Pose2d(0,0, new Rotation2d())
+        );
     }
 
     public AutoDrivetrain(double startX, double startY) {
-        poseX = startX;
-        poseY = startY;
+        wheelLocationHelper = new MecanumDriveKinematics(
+                flWheelLocation, frWheelLocation,
+                blWheelLocation, brWheelLocation
+        );
+
+        odometryHelper = new MecanumDriveOdometry(
+                wheelLocationHelper, Rotation2d.fromDegrees(getHeadingInDegrees()),
+                new Pose2d(startX,startY, new Rotation2d())
+        );
     }
 
 
+    public void startTimer() {
+        autoTimer.startTime();
+        veloTimer.startTime();
+    }
+
     //Records Current Pose
     public void recordPose() {
+        MecanumDriveWheelSpeeds wheelSpeeds = new MecanumDriveWheelSpeeds(
+                getFLVelo(), getFRVelo(),
+                getBLVelo(), getBRVelo()
+        );
+        veloTimer.reset();
 
-        //Get change in displacement since last run as a vector
-        deltaRobotX = getXDistance() - lastX;
-        deltaRobotY = getYDistance() - lastY;
+        Rotation2d gyroAngle = Rotation2d.fromDegrees(getHeadingInDegrees());
 
-        //Take our robot-oriented vectors and convert it into field-oriented vectors
-        deltaFieldX = (Math.cos(lastRot) * deltaRobotX) + (Math.sin(lastRot) * deltaRobotY);
-        deltaFieldY = (Math.cos(lastRot) * deltaRobotY) + (Math.sin(lastRot) * deltaRobotX);
-        lastRot = getHeadingInRadians();
-        //Set new Position on field according to deltas
-        poseX += deltaFieldX;
-        poseY += deltaFieldY;
+        Pose2d overallPose = odometryHelper.updateWithTime(autoTimer.time(), gyroAngle, wheelSpeeds);
 
-        //SET LAST DETECTED X AND Y FOR NEXT CALL
-        lastX = getXDistance();
-        lastY = getYDistance();
+        poseX = overallPose.getX();
+        poseY = overallPose.getY();
 
         autoCounter++;
     }
@@ -233,9 +274,10 @@ public class AutoDrivetrain extends TeamDrivetrain {
     --2: Odometry Specific Accessors
     ---2a: Raw Counts to Inches
     ---2b: Current Position
-    ---2c: Autonomous Targets
-    ---2d: Robot Relative Deltas
-    ---2e: Field Relative Deltas
+    ---2c: Get Velocities
+    ---2d: Autonomous Targets
+    ---2e: Robot Relative Deltas
+    ---2f: Field Relative Deltas
 
     -------------------------------
     --------MUTATOR METHODS--------
@@ -290,8 +332,38 @@ public class AutoDrivetrain extends TeamDrivetrain {
         return poseY;
     }
 
+    // 2c: WHEEL VELOCITIES
 
-    // 2c: AUTONOMOUS TARGETS
+    private double lastFL = 0;
+    private double lastFR = 0;
+    private double lastBL = 0;
+    private double lastBR = 0;
+
+    public double getFLVelo() {
+        double velocity = ((frontLeft.getCurrentPosition()-lastFL)/ getDriveCPI())/veloTimer.time();
+        lastFL = frontLeft.getCurrentPosition();
+        return velocity;
+    }
+
+    public double getFRVelo() {
+        double velocity = ((frontRight.getCurrentPosition()-lastFR)/ getDriveCPI())/veloTimer.time();
+        lastFR = frontRight.getCurrentPosition();
+        return velocity;
+    }
+
+    public double getBLVelo() {
+        double velocity = ((backLeft.getCurrentPosition()-lastBL)/ getDriveCPI())/veloTimer.time();
+        lastBL = backLeft.getCurrentPosition();
+        return velocity;
+    }
+
+    public double getBRVelo() {
+        double velocity = ((backRight.getCurrentPosition()-lastFR)/ getDriveCPI())/veloTimer.time();
+        lastBR = backRight.getCurrentPosition();
+        return velocity;
+    }
+
+    // 2d: AUTONOMOUS TARGETS
 
     //Returns the X position targeted by the autonomous
     public double getTargetX() {
@@ -304,7 +376,7 @@ public class AutoDrivetrain extends TeamDrivetrain {
     }
 
 
-    //2d: ROBOT RELATIVE DELTAS
+    //2e: ROBOT RELATIVE DELTAS
 
     //Gets the change in position in relation to the ROBOT on the X axis
     public double getRobotRelativeDeltaX() {
