@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode;
 
 public class AutoDrivetrain extends TeamDrivetrain {
 
-
     //Position/Odometry Variables
     private double poseX;
     private double poseY;
